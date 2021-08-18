@@ -2,7 +2,8 @@
 
 ## Install dbp conda environment ##
 
-```conda env create -f environment.yml```
+From the root of this repo, run
+`conda env create -f environment.yaml`
 
 
 ## Overview ##
