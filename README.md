@@ -1,5 +1,10 @@
 # deepchain.bio DNA-binding Proteins app #
 
+## Install dbp conda environment ##
+
+```conda env create -f environment.yml```
+
+
 ## Overview ##
 As a part of the protein family, DNA-binding proteins play an important role in DNA replication, DNA methylation, gene expression and other biological processes. Due to the importance of DBPs, it is highly desirable to develop effective methods to identify DBPs. At present, some experimental techniques, such as filter binding assays, X-ray crystallography (PMID: 11229439) genetic analysis (PMID: 12837780), etc., are developed for identifying DBPs. However, experimental methods are both costly and time-consuming. Meanwhile, more and more protein sequences have exploded with efficient next-generation sequencing techniques. Therefore, it is an important research topic to develop fast and effective computational methods to handle such large-scale protein sequence data.
 
