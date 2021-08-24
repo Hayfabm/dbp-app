@@ -1,201 +1,86 @@
-import os
-import numpy as np
+"""
+WARNINGS: if you run the app locally and don't have a GPU you should choose device='cpu'
+"""
+
+from typing import Dict, List, Tuple
+
 import pandas as pd
-from Bio import SeqIO
-import tensorflow as tf
-from numpy import array
-from keras.optimizers import *
-from keras import layers, models
-from keras.models import Sequential
-from keras.layers.core import Dense, Dropout, Flatten
-from keras.layers.convolutional import Convolution1D, MaxPooling1D, SeparableConv1D
-from keras.callbacks import (
-    ReduceLROnPlateau,
-    EarlyStopping,
-    TensorBoard,
-    ModelCheckpoint,
-)
-from keras.layers import LSTM, Bidirectional, Dense, Embedding, Input, concatenate
-from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import roc_auc_score, average_precision_score
-from tensorflow.keras.utils import plot_model
-from keras.layers.convolutional import Convolution1D, MaxPooling1D
-from tensorflow.keras.utils import plot_model
-from IPython.display import Image
-from keras.utils.vis_utils import plot_model
-from sklearn.model_selection import train_test_split
-from keras.layers.embeddings import Embedding
-from keras.preprocessing.text import one_hot
-from keras.preprocessing import sequence
-from keras.utils.np_utils import to_categorical
-from keras.callbacks import ReduceLROnPlateau, EarlyStopping
-from keras.layers.normalization import BatchNormalization
-
-AA_MAPPING = {
-    "A": 1,
-    "R": 2,
-    "N": 3,
-    "D": 4,
-    "C": 5,
-    "E": 6,
-    "Q": 7,
-    "G": 8,
-    "H": 9,
-    "I": 10,
-    "L": 11,
-    "K": 12,
-    "M": 13,
-    "F": 14,
-    "P": 15,
-    "S": 16,
-    "T": 17,
-    "W": 18,
-    "Y": 19,
-    "V": 20,
-    "X": 21,
-    "B": 22,
-    "U": 23,
-    "O": 24,
-    "Z": 25,
-}
+from keras.models import load_model
+import numpy as np
 
 
-def create_dataset():
-    # Read data {Positives samples}
-    P = pd.read_csv("data/PDB14189_P.csv")
-    # Split positive data in 80:10:10 for train:valid:test dataset
-    train_size = 0.8
-    # In the first step we will split the data in training and remaining dataset
-    P_train, P_rem = train_test_split(P, train_size=0.8, random_state=1024)
-    # Now since we want the valid and test size to be equal (10% each of overall data).
-    # we have to define valid_size=0.5 (that is 50% of remaining data)
-    test_size = 0.5
-    P_valid, P_test = train_test_split(P_rem, test_size=0.5, random_state=1)
+class DBPApp:
+    def __init__(self, device: str = "cuda:0"):
+        self._device = device
+        self.num_gpus = 0 if device == "cpu" else 1
 
-    # Read data {Negative samples}
-    N = pd.read_csv("data/PDB14189_N.csv")
-    # Let's say we want to split negative data in 80:10:10 for train:valid:test dataset
-    train_size = 0.8
-    # In the first step we will split the data in training and remaining dataset
-    N_train, N_rem = train_test_split(N, train_size=0.8, random_state=1024)
-    # Now since we want the valid and test size to be equal (10% each of overall data).
-    # we have to define valid_size=0.5 (that is 50% of remaining data)
-    test_size = 0.5
-    N_valid, N_test = train_test_split(N_rem, test_size=0.5, random_state=1)
+        self.NATURAL_AA = "ACDEFGHIKLMNPQRSTVWY"
+        self.max_seq_length = 600
 
-    # Get balanced Data
-    train_C = pd.concat([P_train, N_train])
-    valid_C = pd.concat([P_valid, N_valid])
-    test_C = pd.concat([P_test, N_test])
+        # NOTE: if you have issues at this step, please use h5py 2.10.0
+        # by running the following command: pip install h5py==2.10.0
+        self.model = load_model("checkpoint/model_0.hdf5")
+        print(self.model.summary())
 
-    # shuffle the DataFrame rows
-    train_C = train_C.sample(frac=1, random_state=1)
-    valid_C = valid_C.sample(frac=1, random_state=1)
-    test_C = test_C.sample(frac=1, random_state=1)
+    def compute_scores(self, sequences_list: List[str]) -> List[float]:
+        """Compute a score based on a user defines function.
 
-    x_train = train_C["SequenceID"]
-    x_valid = valid_C["SequenceID"]
-    x_test = test_C["SequenceID"]
+        This function compute a score for each sequences receive in the input list.
+        Caution :  to load extra file, put it in src/ folder and use
+                   self.get_filepath(__file__, "extra_file.ext")
 
-    y_train = train_C["label"]
-    y_valid = valid_C["label"]
-    y_test = test_C["label"]
+        Returns:
+            ScoreList object
+            Score must be a list of dict:
+                    * element of list is protein score
+                    * key of dict are score_names
+        """
 
-    return x_train, x_valid, x_test, y_train, y_valid, y_test
+        scores_list = []
+        for sequence in sequences_list:
+
+            # adapt sequence size
+            if len(sequence) > self.max_seq_length:
+                sequence = sequence[: self.max_seq_length]
+            else:
+                sequence = sequence + "Z" * (self.max_seq_length - len(sequence))
+
+            # encode sequence
+            encoded_sequence = np.zeros((len(sequence), 20))
+            for i, val in enumerate(sequence):
+                if val in self.NATURAL_AA:
+                    index = self.NATURAL_AA.index(val)
+                    encoded_sequence[i][index] = 1
+            model_input = np.expand_dims(encoded_sequence, 0)
+
+            # forward pass throught the model
+            model_output = self.model.predict(model_input)[0]
+
+            scores_list.append(model_output[1])  # probability to bind
+        return scores_list
 
 
-def build_model(top_words, embedding_size, maxlen, pool_length):
-    model = Sequential()
-    model.add(Embedding(top_words, embedding_size, input_length=maxlen))
-    model.add(
-        Convolution1D(
-            64,
-            8,
-            strides=1,
-            padding="same",
-            activation="relu",
-            kernel_initializer="random_uniform",
-            name="convolution_1d_layer1",
-        )
-    )
-    model.add(BatchNormalization())
-    model.add(MaxPooling1D(pool_size=pool_length))
-    model.add(Dropout(0.2))
-    model.add(
-        Convolution1D(
-            64,
-            8,
-            strides=1,
-            padding="same",
-            activation="relu",
-            kernel_initializer="random_uniform",
-            name="convolution_1d_layer2",
-        )
-    )
-    model.add(BatchNormalization())
-    model.add(MaxPooling1D(pool_size=pool_length))
-    model.add(Dropout(0.2))
-    model.add(Bidirectional(LSTM(32, return_sequences=True)))
-    model.add(Flatten())
-    model.add(Dense(128, activation="sigmoid"))
-    model.add(BatchNormalization())
-    model.add(Dropout(0.3))
-    model.add(Dense(2, activation="softmax"))
-
-    return model
+def create_dataset(data_path: str) -> Tuple[List[str], List[int]]:
+    df = pd.read_csv(data_path)
+    df = df.sample(frac=1).reset_index(drop=True)  # shuffle the dataset
+    return list(df["sequence"]), list(df["label"])
 
 
 if __name__ == "__main__":
-    # Create Dataset
-    x_train, x_valid, x_test, y_train, y_valid, y_test = create_dataset()
-    print("number of training data:", len(x_train))
+    # sequences = ["MKTVRQERLKSIVRILERSKEPVSGAQ", "KALEE", "LAGYNIVATPRGYVLAGG"]
 
-    # Embedding
-    top_words = len(AA_MAPPING.keys())
-    maxlen = 800
-    embedding_size = 28
-    # Convolution
-    pool_length = 3
-    # TrainingSet
-    batch_size = 4
-    epochs = 200
-    # reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
-    # early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=5, verbose=1)
+    # sequences, labels = create_dataset(data_path="data/PDB14189.csv")  # 0.7614
+    sequences, labels = create_dataset(data_path="data/PDB2272.csv")  # 0.6558
 
-    # Build Model
-    model = build_model(top_words, embedding_size, maxlen, pool_length)
-    print(model.summary())
-    # Compile model
-    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+    app = DBPApp("cpu")
 
-    # integer encode the sequences
-    encoded_docs = [[AA_MAPPING[aa] for aa in seq] for seq in x_train]
-    encoded_docs2 = [[AA_MAPPING[aa] for aa in seq] for seq in x_valid]
-    encoded_docs3 = [[AA_MAPPING[aa] for aa in seq] for seq in x_test]
-    X_train = sequence.pad_sequences(
-        encoded_docs, maxlen=maxlen, padding="post", value=0.0
-    )
-    X_valid = sequence.pad_sequences(
-        encoded_docs2, maxlen=maxlen, padding="post", value=0.0
-    )
-    X_test = sequence.pad_sequences(
-        encoded_docs3, maxlen=maxlen, padding="post", value=0.0
-    )
+    scores = app.compute_scores(sequences)
 
-    # Define y
-    y_train = tf.keras.utils.to_categorical(y_train, num_classes=2, dtype="float32")
-    y_valid = tf.keras.utils.to_categorical(y_valid, num_classes=2, dtype="float32")
-    y_test = tf.keras.utils.to_categorical(y_test, num_classes=2, dtype="float32")
-
-    tf.config.experimental_run_functions_eagerly(True)
-    # Fit the model
-    history = model.fit(
-        X_train,
-        y_train,
-        batch_size=batch_size,
-        epochs=20,
-        verbose=1,
-        validation_data=(X_valid, y_valid),
-    )
-    # callbacks=[reduce_lr, early_stopping])
-
+    # compute accuracy of the model
+    acc = []
+    for s, l in zip(scores, labels):
+        if ((s >= 0.5) and (l == 1)) or ((s < 0.5) and (l == 0)):
+            acc.append(1)
+        else:
+            acc.append(0)
+    print(np.mean(acc))
