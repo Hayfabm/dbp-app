@@ -14,7 +14,7 @@ def create_dataset(data_path: str) -> Tuple[List[str], List[int]]:
 
 def split_dataset(
     sequences_list: List[str], labels_list: List[int], train_size: float = 0.8
-) -> Tuple[List[str], List[int], List[int], List[int], List[int], List[int]]:
+) -> Tuple[List[str], List[str], List[str], List[int], List[int], List[int]]:
     dataset = pd.DataFrame({"sequence": sequences_list, "label": labels_list})
     dataset = dataset.sample(frac=1, random_state=1)
     train, remaining = train_test_split(dataset, train_size=train_size, random_state=2)

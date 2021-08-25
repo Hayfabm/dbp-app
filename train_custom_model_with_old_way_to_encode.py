@@ -4,7 +4,8 @@ import random
 import numpy as np
 import tensorflow as tf
 from keras.models import Sequential
-from keras.layers import InputLayer, LSTM, Bidirectional
+from keras.preprocessing import sequence
+from keras.layers import LSTM, Bidirectional, Embedding
 from keras.layers.core import Dense, Dropout, Flatten
 from keras.layers.convolutional import Convolution1D, MaxPooling1D
 from keras.layers.normalization import BatchNormalization
@@ -17,15 +18,15 @@ from keras.callbacks import (
 )
 
 
-from utils import create_dataset, encode_sequence
+from utils import create_dataset
 
 
-def build_model(top_words, maxlen, pool_length):
+def build_model(top_words, embedding_size, maxlen, pool_length):
     """PDBP-fusion model
     Combined CNN and Bi-LSTM, to predict DNA binding proteins
     """
     custom_model = Sequential(name="PDBP-fusion model")
-    custom_model.add(InputLayer(input_shape=(maxlen, top_words)))
+    custom_model.add(Embedding(top_words, embedding_size, input_length=maxlen))
     custom_model.add(
         Convolution1D(
             64,
@@ -72,9 +73,15 @@ if __name__ == "__main__":
     np.random.seed(42)
     tf.random.set_seed(42)
 
+    # amino acids encoding
+    NATURAL_AA = "ACDEFGHIKLMNPQRSTVWY"
+    SPECIAL_AA = "BJOUXZ"
+    CONSIDERED_AA = NATURAL_AA + SPECIAL_AA
+    AA_MAPPING = {aa: i + 1 for i, aa in enumerate(CONSIDERED_AA)}
     # embedding and convolution parameters
-    VOCAB_SIZE = 20
+    VOCAB_SIZE = len(AA_MAPPING.keys())
     MAX_SEQ_LENGTH = 800
+    EMBEDDING_SIZE = 28
     POOL_LENGTH = 3
 
     # training parameters
@@ -83,19 +90,23 @@ if __name__ == "__main__":
 
     # create train dataset
     sequences_train, labels_train = create_dataset(data_path="data/PDB14189.csv")
-    # sequences_train, labels_train = sequences_train[:100], labels_train[:100]
 
     # create test dataset
     sequences_test, labels_test = create_dataset(data_path="data/PDB2272.csv")
-    # sequences_test, labels_test = sequences_test[:10], labels_test[:10]
 
     # encode sequences
-    sequences_train_encoded = np.concatenate(
-        [encode_sequence(seq, MAX_SEQ_LENGTH) for seq in sequences_train], axis=0
-    )  # (14189, 800, 20)
-    sequences_test_encoded = np.concatenate(
-        [encode_sequence(seq, MAX_SEQ_LENGTH) for seq in sequences_test], axis=0
-    )  # (2272, 800, 20)
+    sequences_train_encoded = sequence.pad_sequences(
+        [[AA_MAPPING[aa] for aa in list(seq)] for seq in sequences_train],
+        maxlen=MAX_SEQ_LENGTH,
+        padding="post",
+        value=0.0,
+    )  # (14189, 800)
+    sequences_test_encoded = sequence.pad_sequences(
+        [[AA_MAPPING[aa] for aa in seq] for seq in sequences_test],
+        maxlen=MAX_SEQ_LENGTH,
+        padding="post",
+        value=0.0,
+    )  # (2272, 800)
 
     # encode labels
     labels_train_encoded = to_categorical(
@@ -106,7 +117,7 @@ if __name__ == "__main__":
     )  # (2272, 2)
 
     # build model
-    model = build_model(VOCAB_SIZE, MAX_SEQ_LENGTH, POOL_LENGTH)
+    model = build_model(VOCAB_SIZE, EMBEDDING_SIZE, MAX_SEQ_LENGTH, POOL_LENGTH)
     print(model.summary())
 
     # compile model
