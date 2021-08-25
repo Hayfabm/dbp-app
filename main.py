@@ -2,11 +2,12 @@
 WARNINGS: if you run the app locally and don't have a GPU you should choose device='cpu'
 """
 
-from typing import Dict, List, Tuple
+from typing import List
 
-import pandas as pd
 from keras.models import load_model
 import numpy as np
+
+from utils import create_dataset, encode_sequence
 
 
 class DBPApp:
@@ -23,47 +24,16 @@ class DBPApp:
         print(self.model.summary())
 
     def compute_scores(self, sequences_list: List[str]) -> List[float]:
-        """Compute a score based on a user defines function.
-
-        This function compute a score for each sequences receive in the input list.
-        Caution :  to load extra file, put it in src/ folder and use
-                   self.get_filepath(__file__, "extra_file.ext")
-
-        Returns:
-            ScoreList object
-            Score must be a list of dict:
-                    * element of list is protein score
-                    * key of dict are score_names
-        """
-
         scores_list = []
         for sequence in sequences_list:
-
-            # adapt sequence size
-            if len(sequence) > self.max_seq_length:
-                sequence = sequence[: self.max_seq_length]
-            else:
-                sequence = sequence + "Z" * (self.max_seq_length - len(sequence))
-
             # encode sequence
-            encoded_sequence = np.zeros((len(sequence), 20))
-            for i, val in enumerate(sequence):
-                if val in self.NATURAL_AA:
-                    index = self.NATURAL_AA.index(val)
-                    encoded_sequence[i][index] = 1
-            model_input = np.expand_dims(encoded_sequence, 0)
+            sequence_encoded = encode_sequence(sequence)
 
             # forward pass throught the model
-            model_output = self.model.predict(model_input)[0]
+            model_output = self.model.predict(sequence_encoded)[0]
 
-            scores_list.append(model_output[1])  # probability to bind
+            scores_list.append(model_output[1])  # model_output[1]: probability to bind
         return scores_list
-
-
-def create_dataset(data_path: str) -> Tuple[List[str], List[int]]:
-    df = pd.read_csv(data_path)
-    df = df.sample(frac=1).reset_index(drop=True)  # shuffle the dataset
-    return list(df["sequence"]), list(df["label"])
 
 
 if __name__ == "__main__":
