@@ -9,16 +9,18 @@ from tensorflow.keras.callbacks import (
     ReduceLROnPlateau,
     EarlyStopping,
     ModelCheckpoint,
-    TensorBoard,
 )
+import neptune.new as neptune
+from neptune.new.integrations.tensorflow_keras import NeptuneCallback
 
 
 from utils import create_dataset, one_hot_encoding
 
 
 if __name__ == "__main__":
+    run = neptune.init(project="sophiedalentour/DBP-APP")
 
-    # fix the seed
+    # set the seed
     SEED = 42
     os.environ["PYTHONHASHSEED"] = str(SEED)
     random.seed(SEED)
@@ -56,7 +58,11 @@ if __name__ == "__main__":
     print(model.summary())
 
     # compile model
-    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+    model.compile(
+        loss="binary_crossentropy",
+        optimizer="adam",
+        metrics=["accuracy", "AUC", "Precision", "Recall"],
+    )
 
     # tf.config.experimental_run_functions_eagerly(True)
 
@@ -68,9 +74,7 @@ if __name__ == "__main__":
         ModelCheckpoint(
             filepath=log_dir + "/model.{epoch:02d}-{val_accuracy:.2f}.hdf5"
         ),
-        TensorBoard(
-            log_dir=log_dir, update_freq="epoch", profile_batch=0, histogram_freq=1
-        ),
+        NeptuneCallback(run=run, base_namespace="metrics"),
     ]
 
     # fit the model
@@ -83,3 +87,5 @@ if __name__ == "__main__":
         validation_data=(sequences_test_encoded, labels_test_encoded),
         callbacks=my_callbacks,
     )
+
+    run.stop()
