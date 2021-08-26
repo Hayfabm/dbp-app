@@ -3,14 +3,20 @@ import os
 import random
 import numpy as np
 import tensorflow as tf
-from keras.models import Sequential
-from keras.preprocessing import sequence
-from keras.layers import LSTM, Bidirectional, Embedding
-from keras.layers.core import Dense, Dropout, Flatten
-from keras.layers.convolutional import Convolution1D, MaxPooling1D
-from keras.layers.normalization import BatchNormalization
-from keras.utils import to_categorical
-from keras.callbacks import (
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import (
+    LSTM,
+    Bidirectional,
+    Embedding,
+    Dense,
+    Dropout,
+    Flatten,
+    Convolution1D,
+    MaxPooling1D,
+    BatchNormalization,
+)
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.callbacks import (
     ReduceLROnPlateau,
     EarlyStopping,
     ModelCheckpoint,
@@ -18,14 +24,14 @@ from keras.callbacks import (
 )
 
 
-from utils import create_dataset
+from utils import create_dataset, preprocess_word_embedding_encoding
 
 
 def build_model(top_words, embedding_size, maxlen, pool_length):
     """PDBP-fusion model
     Combined CNN and Bi-LSTM, to predict DNA binding proteins
     """
-    custom_model = Sequential(name="PDBP-fusion model")
+    custom_model = Sequential(name="PDBPFusion")
     custom_model.add(Embedding(top_words, embedding_size, input_length=maxlen))
     custom_model.add(
         Convolution1D(
@@ -67,26 +73,22 @@ def build_model(top_words, embedding_size, maxlen, pool_length):
 
 if __name__ == "__main__":
 
-    # fix the seed
-    os.environ["PYTHONHASHSEED"] = str(42)
-    random.seed(42)
-    np.random.seed(42)
-    tf.random.set_seed(42)
+    # set the seed
+    SEED = 42
+    os.environ["PYTHONHASHSEED"] = str(SEED)
+    random.seed(SEED)
+    np.random.seed(SEED)
+    tf.random.set_seed(SEED)
 
-    # amino acids encoding
-    NATURAL_AA = "ACDEFGHIKLMNPQRSTVWY"
-    SPECIAL_AA = "BJOUXZ"
-    CONSIDERED_AA = NATURAL_AA + SPECIAL_AA
-    AA_MAPPING = {aa: i + 1 for i, aa in enumerate(CONSIDERED_AA)}
     # embedding and convolution parameters
-    VOCAB_SIZE = len(AA_MAPPING.keys())
+    VOCAB_SIZE = len("ACDEFGHIKLMNPQRSTVWYBJOUXZ")
     MAX_SEQ_LENGTH = 800
     EMBEDDING_SIZE = 28
     POOL_LENGTH = 3
 
     # training parameters
-    BATCH_SIZE = 4
-    NUM_EPOCHS = 200
+    BATCH_SIZE = 128
+    NUM_EPOCHS = 2000
 
     # create train dataset
     sequences_train, labels_train = create_dataset(data_path="data/PDB14189.csv")
@@ -95,17 +97,11 @@ if __name__ == "__main__":
     sequences_test, labels_test = create_dataset(data_path="data/PDB2272.csv")
 
     # encode sequences
-    sequences_train_encoded = sequence.pad_sequences(
-        [[AA_MAPPING[aa] for aa in list(seq)] for seq in sequences_train],
-        maxlen=MAX_SEQ_LENGTH,
-        padding="post",
-        value=0.0,
+    sequences_train_encoded = np.concatenate(
+        [preprocess_word_embedding_encoding(seq) for seq in sequences_train], axis=0,
     )  # (14189, 800)
-    sequences_test_encoded = sequence.pad_sequences(
-        [[AA_MAPPING[aa] for aa in seq] for seq in sequences_test],
-        maxlen=MAX_SEQ_LENGTH,
-        padding="post",
-        value=0.0,
+    sequences_test_encoded = np.concatenate(
+        [preprocess_word_embedding_encoding(seq) for seq in sequences_test], axis=0,
     )  # (2272, 800)
 
     # encode labels
@@ -123,7 +119,7 @@ if __name__ == "__main__":
     # compile model
     model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
 
-    tf.config.experimental_run_functions_eagerly(True)
+    # tf.config.experimental_run_functions_eagerly(True)
 
     # in order to see logs, please run this command: tensorboard --logdir logs/
     log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")

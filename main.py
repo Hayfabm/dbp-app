@@ -4,7 +4,7 @@ WARNINGS: if you run the app locally and don't have a GPU you should choose devi
 
 from typing import List
 
-from keras.models import load_model
+from tensorflow.keras.models import load_model
 import numpy as np
 
 from utils import create_dataset, encode_sequence

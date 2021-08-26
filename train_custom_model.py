@@ -3,13 +3,20 @@ import os
 import random
 import numpy as np
 import tensorflow as tf
-from keras.models import Sequential
-from keras.layers import InputLayer, LSTM, Bidirectional
-from keras.layers.core import Dense, Dropout, Flatten
-from keras.layers.convolutional import Convolution1D, MaxPooling1D
-from keras.layers.normalization import BatchNormalization
-from keras.utils import to_categorical
-from keras.callbacks import (
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import (
+    InputLayer,
+    LSTM,
+    Bidirectional,
+    Dense,
+    Dropout,
+    Flatten,
+    Convolution1D,
+    MaxPooling1D,
+    BatchNormalization,
+)
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.callbacks import (
     ReduceLROnPlateau,
     EarlyStopping,
     ModelCheckpoint,
@@ -17,14 +24,14 @@ from keras.callbacks import (
 )
 
 
-from utils import create_dataset, encode_sequence
+from utils import create_dataset, one_hot_encoding
 
 
 def build_model(top_words, maxlen, pool_length):
     """PDBP-fusion model
     Combined CNN and Bi-LSTM, to predict DNA binding proteins
     """
-    custom_model = Sequential(name="PDBP-fusion model")
+    custom_model = Sequential(name="PDBPFusion")
     custom_model.add(InputLayer(input_shape=(maxlen, top_words)))
     custom_model.add(
         Convolution1D(
@@ -67,10 +74,11 @@ def build_model(top_words, maxlen, pool_length):
 if __name__ == "__main__":
 
     # fix the seed
-    os.environ["PYTHONHASHSEED"] = str(42)
-    random.seed(42)
-    np.random.seed(42)
-    tf.random.set_seed(42)
+    SEED = 42
+    os.environ["PYTHONHASHSEED"] = str(SEED)
+    random.seed(SEED)
+    np.random.seed(SEED)
+    tf.random.set_seed(SEED)
 
     # embedding and convolution parameters
     VOCAB_SIZE = 20
@@ -78,23 +86,21 @@ if __name__ == "__main__":
     POOL_LENGTH = 3
 
     # training parameters
-    BATCH_SIZE = 4
-    NUM_EPOCHS = 200
+    BATCH_SIZE = 128
+    NUM_EPOCHS = 2000
 
     # create train dataset
     sequences_train, labels_train = create_dataset(data_path="data/PDB14189.csv")
-    # sequences_train, labels_train = sequences_train[:100], labels_train[:100]
 
     # create test dataset
     sequences_test, labels_test = create_dataset(data_path="data/PDB2272.csv")
-    # sequences_test, labels_test = sequences_test[:10], labels_test[:10]
 
     # encode sequences
     sequences_train_encoded = np.concatenate(
-        [encode_sequence(seq, MAX_SEQ_LENGTH) for seq in sequences_train], axis=0
+        [one_hot_encoding(seq, MAX_SEQ_LENGTH) for seq in sequences_train], axis=0,
     )  # (14189, 800, 20)
     sequences_test_encoded = np.concatenate(
-        [encode_sequence(seq, MAX_SEQ_LENGTH) for seq in sequences_test], axis=0
+        [one_hot_encoding(seq, MAX_SEQ_LENGTH) for seq in sequences_test], axis=0,
     )  # (2272, 800, 20)
 
     # encode labels
@@ -112,7 +118,7 @@ if __name__ == "__main__":
     # compile model
     model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
 
-    tf.config.experimental_run_functions_eagerly(True)
+    # tf.config.experimental_run_functions_eagerly(True)
 
     # in order to see logs, please run this command: tensorboard --logdir logs/
     log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")

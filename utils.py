@@ -31,20 +31,50 @@ def split_dataset(
     )
 
 
-def encode_sequence(
-    sequence: str, max_seq_length: int = 600, NATURAL_AA: str = "ACDEFGHIKLMNPQRSTVWY"
+def one_hot_encoding(
+    sequence: str,
+    max_seq_length: int = 600,
+    CONSIDERED_AA: str = "ACDEFGHIKLMNPQRSTVWY",
 ):
     # adapt sequence size
     if len(sequence) > max_seq_length:
-        sequence = sequence[:max_seq_length]  # short the sequence
+        # short the sequence
+        sequence = sequence[:max_seq_length]
     else:
-        sequence = sequence + "Z" * (max_seq_length - len(sequence))  # pad the sequence
+        # pad the sequence
+        sequence = sequence + "." * (max_seq_length - len(sequence))
 
     # encode sequence
-    encoded_sequence = np.zeros((len(sequence), len(NATURAL_AA)))  # (600, 20)
-    for i, val in enumerate(sequence):
-        if val in NATURAL_AA:
-            index = NATURAL_AA.index(val)
-            encoded_sequence[i][index] = 1
+    encoded_sequence = np.zeros((max_seq_length, len(CONSIDERED_AA)))  # (600, 20)
+    for i, amino_acid in enumerate(sequence):
+        if amino_acid in CONSIDERED_AA:
+            encoded_sequence[i][CONSIDERED_AA.index(amino_acid)] = 1
     model_input = np.expand_dims(encoded_sequence, 0)  # add batch dimension
+
     return model_input  # (1, 600, 20)
+
+
+def preprocess_word_embedding_encoding(
+    sequence: str,
+    max_seq_length: int = 800,
+    CONSIDERED_AA: str = "ACDEFGHIKLMNPQRSTVWYBJOUXZ",
+):
+    # amino acids encoding
+    aa_mapping = {aa: i + 1 for i, aa in enumerate(CONSIDERED_AA)}
+
+    # adapt sequence size
+    if len(sequence) > max_seq_length:
+        # short the sequence
+        sequence = sequence[:max_seq_length]
+    else:
+        # pad the sequence
+        sequence = sequence + "." * (max_seq_length - len(sequence))
+
+    # encode sequence
+    encoded_sequence = np.zeros((max_seq_length,))  # (800,)
+    for i, amino_acid in enumerate(sequence):
+        if amino_acid in CONSIDERED_AA:
+            encoded_sequence[i] = aa_mapping[amino_acid]
+    model_input = np.expand_dims(encoded_sequence, 0)  # add batch dimension
+
+    return model_input  # (1, 800)

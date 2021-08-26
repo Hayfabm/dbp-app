@@ -3,9 +3,9 @@ import os
 import random
 import numpy as np
 import tensorflow as tf
-from keras.models import load_model
-from keras.utils import to_categorical
-from keras.callbacks import (
+from tensorflow.keras.models import load_model
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.callbacks import (
     ReduceLROnPlateau,
     EarlyStopping,
     ModelCheckpoint,
@@ -13,20 +13,21 @@ from keras.callbacks import (
 )
 
 
-from utils import create_dataset, encode_sequence
+from utils import create_dataset, one_hot_encoding
 
 
 if __name__ == "__main__":
 
     # fix the seed
-    os.environ["PYTHONHASHSEED"] = str(42)
-    random.seed(42)
-    np.random.seed(42)
-    tf.random.set_seed(42)
+    SEED = 42
+    os.environ["PYTHONHASHSEED"] = str(SEED)
+    random.seed(SEED)
+    np.random.seed(SEED)
+    tf.random.set_seed(SEED)
 
     # training parameters
-    BATCH_SIZE = 4
-    NUM_EPOCHS = 200
+    BATCH_SIZE = 128
+    NUM_EPOCHS = 2000
 
     # create train dataset
     sequences_train, labels_train = create_dataset(data_path="data/PDB14189.csv")
@@ -36,10 +37,10 @@ if __name__ == "__main__":
 
     # encode sequences
     sequences_train_encoded = np.concatenate(
-        [encode_sequence(seq) for seq in sequences_train], axis=0
+        [one_hot_encoding(seq) for seq in sequences_train], axis=0
     )  # (14189, 800, 20)
     sequences_test_encoded = np.concatenate(
-        [encode_sequence(seq) for seq in sequences_test], axis=0
+        [one_hot_encoding(seq) for seq in sequences_test], axis=0
     )  # (2272, 800, 20)
 
     # encode labels
@@ -57,7 +58,7 @@ if __name__ == "__main__":
     # compile model
     model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
 
-    tf.config.experimental_run_functions_eagerly(True)
+    # tf.config.experimental_run_functions_eagerly(True)
 
     # in order to see logs, please run this command: tensorboard --logdir logs/
     log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
