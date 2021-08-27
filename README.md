@@ -5,6 +5,10 @@
 From the root of this repo, run
 `conda env create -f environment.yaml`
 
+Make sure you've tensorflow==2.5.0 installed
+
+Follow this tutorial[https://docs.neptune.ai/integrations-and-supported-tools/model-training/tensorflow-keras#step-5-monitor-your-tensorflow-keras-training-in-neptune] to make Neptune.ai logger works
+
 
 ## Overview ##
 As a part of the protein family, DNA-binding proteins play an important role in DNA replication, DNA methylation, gene expression and other biological processes. Due to the importance of DBPs, it is highly desirable to develop effective methods to identify DBPs. At present, some experimental techniques, such as filter binding assays, X-ray crystallography (PMID: 11229439) genetic analysis (PMID: 12837780), etc., are developed for identifying DBPs. However, experimental methods are both costly and time-consuming. Meanwhile, more and more protein sequences have exploded with efficient next-generation sequencing techniques. Therefore, it is an important research topic to develop fast and effective computational methods to handle such large-scale protein sequence data.
