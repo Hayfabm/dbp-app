@@ -7,7 +7,7 @@ From the root of this repo, run
 
 Make sure you've tensorflow==2.5.0 installed
 
-Follow this tutorial[https://docs.neptune.ai/integrations-and-supported-tools/model-training/tensorflow-keras#step-5-monitor-your-tensorflow-keras-training-in-neptune] to make Neptune.ai logger works
+Follow this [tutorial](https://docs.neptune.ai/integrations-and-supported-tools/model-training/tensorflow-keras#step-5-monitor-your-tensorflow-keras-training-in-neptune) to make neptune logger works
 
 
 ## Overview ##
