@@ -1,3 +1,4 @@
+"""DBP evaluation script for pretrained model"""
 import os
 import random
 import numpy as np
@@ -18,12 +19,16 @@ if __name__ == "__main__":
     np.random.seed(SEED)
     tf.random.set_seed(SEED)
 
-    # eval parameters
-    BATCH_SIZE = 128
+    # embedding and convolution parameters
     MAX_SEQ_LENGTH = 800
 
+    # eval parameters
+    BATCH_SIZE = 128
+    MODEL_CHECKPOINT = "checkpoint/model.15-0.78.hdf5"
+    TEST_SET = "data/PDB2272.csv"  # 0.7848
+
     # create test dataset
-    sequences_test, labels_test = create_dataset(data_path="data/PDB2272.csv")  # 0.7848
+    sequences_test, labels_test = create_dataset(data_path=TEST_SET)
 
     # encode sequences
     sequences_test_encoded = np.concatenate(
@@ -36,7 +41,7 @@ if __name__ == "__main__":
     )  # (2272, 2)
 
     # load model
-    model = load_model("checkpoint/model.15-0.78.hdf5")
+    model = load_model(MODEL_CHECKPOINT)
     print(model.summary())
 
     test_loss, test_acc = model.evaluate(

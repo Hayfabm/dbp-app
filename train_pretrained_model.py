@@ -1,3 +1,4 @@
+"""DBP training script for pretrained model"""
 import datetime
 import os
 import random
@@ -18,6 +19,7 @@ from utils import create_dataset, one_hot_encoding
 
 
 if __name__ == "__main__":
+    # init neptune logger
     run = neptune.init(project="sophiedalentour/DBP-APP")
 
     # set the seed
@@ -27,23 +29,57 @@ if __name__ == "__main__":
     np.random.seed(SEED)
     tf.random.set_seed(SEED)
 
+    # set amino acids to consider
+    CONSIDERED_AA = "ACDEFGHIKLMNPQRSTVWY"
+
+    # embedding and convolution parameters
+    MAX_SEQ_LENGTH = 600
+
     # training parameters
     BATCH_SIZE = 128
     NUM_EPOCHS = 2000
+    MODEL_CHECKPOINT = "checkpoint/model_0.hdf5"
+    SAVED_MODEL_PATH = (
+        "logs/model_" + datetime.datetime.now().strftime("%Y%m%d%H%M%S") + ".hdf5"
+    )
+    TRAIN_SET = "data/PDB14189.csv"
+    TEST_SET = "data/PDB2272.csv"
+
+    # save parameters in neptune
+    run["hyper-parameters"] = {
+        "encoding_mode": "one hot",
+        "seed": SEED,
+        "considered_aa": CONSIDERED_AA,
+        "max_seq_length": MAX_SEQ_LENGTH,
+        "batch_size": BATCH_SIZE,
+        "num_epochs": NUM_EPOCHS,
+        "model_checkpoint": MODEL_CHECKPOINT,
+        "saved_model_path": SAVED_MODEL_PATH,
+        "train_set": TRAIN_SET,
+        "test_set": TEST_SET,
+    }
 
     # create train dataset
-    sequences_train, labels_train = create_dataset(data_path="data/PDB14189.csv")
+    sequences_train, labels_train = create_dataset(data_path=TRAIN_SET)
 
     # create test dataset
-    sequences_test, labels_test = create_dataset(data_path="data/PDB2272.csv")
+    sequences_test, labels_test = create_dataset(data_path=TEST_SET)
 
     # encode sequences
     sequences_train_encoded = np.concatenate(
-        [one_hot_encoding(seq) for seq in sequences_train], axis=0
-    )  # (14189, 800, 20)
+        [
+            one_hot_encoding(seq, MAX_SEQ_LENGTH, CONSIDERED_AA)
+            for seq in sequences_train
+        ],
+        axis=0,
+    )  # (14189, 600, 20)
     sequences_test_encoded = np.concatenate(
-        [one_hot_encoding(seq) for seq in sequences_test], axis=0
-    )  # (2272, 800, 20)
+        [
+            one_hot_encoding(seq, MAX_SEQ_LENGTH, CONSIDERED_AA)
+            for seq in sequences_test
+        ],
+        axis=0,
+    )  # (2272, 600, 20)
 
     # encode labels
     labels_train_encoded = to_categorical(
@@ -54,7 +90,7 @@ if __name__ == "__main__":
     )  # (2272, 2)
 
     # load model
-    model = load_model("checkpoint/model_0.hdf5")
+    model = load_model(MODEL_CHECKPOINT)
     print(model.summary())
 
     # compile model
@@ -64,15 +100,15 @@ if __name__ == "__main__":
         metrics=["accuracy", "AUC", "Precision", "Recall"],
     )
 
-    # tf.config.experimental_run_functions_eagerly(True)
-
-    # in order to see logs, please run this command: tensorboard --logdir logs/
-    log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    # define callbacks
     my_callbacks = [
         ReduceLROnPlateau(monitor="val_loss", factor=0.1, patience=3, verbose=1),
         EarlyStopping(monitor="val_loss", min_delta=0, patience=5, verbose=1),
         ModelCheckpoint(
-            filepath=log_dir + "/model.{epoch:02d}-{val_accuracy:.2f}.hdf5"
+            monitor="val_accuracy",
+            mode=max,
+            filepath=SAVED_MODEL_PATH,
+            save_best_only=True,
         ),
         NeptuneCallback(run=run, base_namespace="metrics"),
     ]

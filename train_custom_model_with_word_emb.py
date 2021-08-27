@@ -1,3 +1,4 @@
+"""DBP training script for custom model with word embedding encoding"""
 import datetime
 import os
 import random
@@ -28,7 +29,7 @@ from neptune.new.integrations.tensorflow_keras import NeptuneCallback
 from utils import create_dataset, preprocess_word_embedding_encoding
 
 
-def build_model(top_words, embedding_size, maxlen, pool_length):
+def build_model(top_words, maxlen, pool_length, embedding_size):
     """PDBP-fusion model
     Combined CNN and Bi-LSTM, to predict DNA binding proteins
     """
@@ -73,6 +74,7 @@ def build_model(top_words, embedding_size, maxlen, pool_length):
 
 
 if __name__ == "__main__":
+    # init neptune logger
     run = neptune.init(project="sophiedalentour/DBP-APP")
 
     # set the seed
@@ -82,28 +84,60 @@ if __name__ == "__main__":
     np.random.seed(SEED)
     tf.random.set_seed(SEED)
 
+    # set amino acids to consider
+    CONSIDERED_AA = "ACDEFGHIKLMNPQRSTVWYBJOUXZ"
+
     # embedding and convolution parameters
-    VOCAB_SIZE = len("ACDEFGHIKLMNPQRSTVWYBJOUXZ")
     MAX_SEQ_LENGTH = 800
-    EMBEDDING_SIZE = 28
+    VOCAB_SIZE = len(CONSIDERED_AA)
     POOL_LENGTH = 3
+    EMBEDDING_SIZE = 28
 
     # training parameters
     BATCH_SIZE = 128
     NUM_EPOCHS = 2000
+    SAVED_MODEL_PATH = (
+        "logs/model_" + datetime.datetime.now().strftime("%Y%m%d%H%M%S") + ".hdf5"
+    )
+    TRAIN_SET = "data/PDB14189.csv"
+    TEST_SET = "data/PDB2272.csv"
+
+    # save parameters in neptune
+    run["hyper-parameters"] = {
+        "encoding_mode": "word embedding",
+        "seed": SEED,
+        "considered_aa": CONSIDERED_AA,
+        "max_seq_length": MAX_SEQ_LENGTH,
+        "vocab_size": VOCAB_SIZE,
+        "pool_length": POOL_LENGTH,
+        "embedding_size": EMBEDDING_SIZE,
+        "batch_size": BATCH_SIZE,
+        "num_epochs": NUM_EPOCHS,
+        "saved_model_path": SAVED_MODEL_PATH,
+        "train_set": TRAIN_SET,
+        "test_set": TEST_SET,
+    }
 
     # create train dataset
-    sequences_train, labels_train = create_dataset(data_path="data/PDB14189.csv")
+    sequences_train, labels_train = create_dataset(data_path=TRAIN_SET)
 
     # create test dataset
-    sequences_test, labels_test = create_dataset(data_path="data/PDB2272.csv")
+    sequences_test, labels_test = create_dataset(data_path=TEST_SET)
 
     # encode sequences
     sequences_train_encoded = np.concatenate(
-        [preprocess_word_embedding_encoding(seq) for seq in sequences_train], axis=0,
+        [
+            preprocess_word_embedding_encoding(seq, MAX_SEQ_LENGTH, CONSIDERED_AA)
+            for seq in sequences_train
+        ],
+        axis=0,
     )  # (14189, 800)
     sequences_test_encoded = np.concatenate(
-        [preprocess_word_embedding_encoding(seq) for seq in sequences_test], axis=0,
+        [
+            preprocess_word_embedding_encoding(seq, MAX_SEQ_LENGTH, CONSIDERED_AA)
+            for seq in sequences_test
+        ],
+        axis=0,
     )  # (2272, 800)
 
     # encode labels
@@ -115,7 +149,7 @@ if __name__ == "__main__":
     )  # (2272, 2)
 
     # build model
-    model = build_model(VOCAB_SIZE, EMBEDDING_SIZE, MAX_SEQ_LENGTH, POOL_LENGTH)
+    model = build_model(VOCAB_SIZE, MAX_SEQ_LENGTH, POOL_LENGTH, EMBEDDING_SIZE)
     print(model.summary())
 
     # compile model
@@ -125,15 +159,15 @@ if __name__ == "__main__":
         metrics=["accuracy", "AUC", "Precision", "Recall"],
     )
 
-    # tf.config.experimental_run_functions_eagerly(True)
-
-    # in order to see logs, please run this command: tensorboard --logdir logs/
-    log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    # define callbacks
     my_callbacks = [
         ReduceLROnPlateau(monitor="val_loss", factor=0.1, patience=3, verbose=1),
         EarlyStopping(monitor="val_loss", min_delta=0, patience=5, verbose=1),
         ModelCheckpoint(
-            filepath=log_dir + "/model.{epoch:02d}-{val_accuracy:.2f}.hdf5"
+            monitor="val_accuracy",
+            mode=max,
+            filepath=SAVED_MODEL_PATH,
+            save_best_only=True,
         ),
         NeptuneCallback(run=run, base_namespace="metrics"),
     ]

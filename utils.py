@@ -1,3 +1,4 @@
+"""utils file"""
 from typing import List, Tuple
 
 import numpy as np
@@ -33,7 +34,7 @@ def split_dataset(
 
 def one_hot_encoding(
     sequence: str,
-    max_seq_length: int = 600,
+    max_seq_length: int = 800,
     CONSIDERED_AA: str = "ACDEFGHIKLMNPQRSTVWY",
 ):
     # adapt sequence size
@@ -45,19 +46,19 @@ def one_hot_encoding(
         sequence = sequence + "." * (max_seq_length - len(sequence))
 
     # encode sequence
-    encoded_sequence = np.zeros((max_seq_length, len(CONSIDERED_AA)))  # (600, 20)
+    encoded_sequence = np.zeros((max_seq_length, len(CONSIDERED_AA)))  # (800, 20)
     for i, amino_acid in enumerate(sequence):
         if amino_acid in CONSIDERED_AA:
             encoded_sequence[i][CONSIDERED_AA.index(amino_acid)] = 1
     model_input = np.expand_dims(encoded_sequence, 0)  # add batch dimension
 
-    return model_input  # (1, 600, 20)
+    return model_input  # (1, 800, 20)
 
 
 def preprocess_word_embedding_encoding(
     sequence: str,
     max_seq_length: int = 800,
-    CONSIDERED_AA: str = "ACDEFGHIKLMNPQRSTVWYBJOUXZ",
+    CONSIDERED_AA: str = "ACDEFGHIKLMNPQRSTVWY",
 ):
     # amino acids encoding
     aa_mapping = {aa: i + 1 for i, aa in enumerate(CONSIDERED_AA)}
@@ -78,3 +79,4 @@ def preprocess_word_embedding_encoding(
     model_input = np.expand_dims(encoded_sequence, 0)  # add batch dimension
 
     return model_input  # (1, 800)
+
