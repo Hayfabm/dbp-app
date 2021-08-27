@@ -165,7 +165,7 @@ if __name__ == "__main__":
         EarlyStopping(monitor="val_loss", min_delta=0, patience=5, verbose=1),
         ModelCheckpoint(
             monitor="val_accuracy",
-            mode=max,
+            mode="max",
             filepath=SAVED_MODEL_PATH,
             save_best_only=True,
         ),
