@@ -34,7 +34,9 @@ def build_model(top_words, maxlen, pool_length):
     Combined CNN and Bi-LSTM, to predict DNA binding proteins
     """
     custom_model = Sequential(name="PDBPFusion")
+    # (2272, 800, 20) <- one hot sequence encoding
     custom_model.add(InputLayer(input_shape=(maxlen, top_words)))
+    # (2272, 800, 20) <- still the same one hot sequence encoding
     custom_model.add(
         Convolution1D(
             64,
@@ -75,7 +77,10 @@ def build_model(top_words, maxlen, pool_length):
 
 if __name__ == "__main__":
     # init neptune logger
-    run = neptune.init(project="sophiedalentour/DBP-APP")
+    run = neptune.init(
+        project="sophiedalentour/DBP-APP",
+        tags=["list-of", "tags", "goes-here", "as-list-of-strings"],
+    )
 
     # set the seed
     SEED = 42
@@ -160,7 +165,7 @@ if __name__ == "__main__":
     # define callbacks
     my_callbacks = [
         ReduceLROnPlateau(monitor="val_loss", factor=0.1, patience=3, verbose=1),
-        EarlyStopping(monitor="val_loss", min_delta=0, patience=5, verbose=1),
+        # EarlyStopping(monitor="val_loss", min_delta=0, patience=5, verbose=1),
         ModelCheckpoint(
             monitor="val_accuracy",
             mode="max",

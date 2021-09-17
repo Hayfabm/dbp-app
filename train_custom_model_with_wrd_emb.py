@@ -34,7 +34,9 @@ def build_model(top_words, maxlen, pool_length, embedding_size):
     Combined CNN and Bi-LSTM, to predict DNA binding proteins
     """
     custom_model = Sequential(name="PDBPFusion")
+    # (2272, 800) <- 'preprocess' word embedding sequence encoding
     custom_model.add(Embedding(top_words, embedding_size, input_length=maxlen))
+    # (2272, 800, 28) <- word embedding sequence encoding
     custom_model.add(
         Convolution1D(
             64,
@@ -94,7 +96,7 @@ if __name__ == "__main__":
     EMBEDDING_SIZE = 28
 
     # training parameters
-    BATCH_SIZE = 128
+    BATCH_SIZE = 64
     NUM_EPOCHS = 2000
     SAVED_MODEL_PATH = (
         "logs/model_" + datetime.datetime.now().strftime("%Y%m%d%H%M%S") + ".hdf5"
@@ -116,6 +118,7 @@ if __name__ == "__main__":
         "saved_model_path": SAVED_MODEL_PATH,
         "train_set": TRAIN_SET,
         "test_set": TEST_SET,
+        "commented": "dropout to 0.5",
     }
 
     # create train dataset
@@ -161,8 +164,8 @@ if __name__ == "__main__":
 
     # define callbacks
     my_callbacks = [
-        ReduceLROnPlateau(monitor="val_loss", factor=0.1, patience=3, verbose=1),
-        EarlyStopping(monitor="val_loss", min_delta=0, patience=5, verbose=1),
+        # ReduceLROnPlateau(monitor="val_loss", factor=0.1, patience=3, verbose=1),
+        # EarlyStopping(monitor="val_loss", min_delta=0, patience=5, verbose=1),
         ModelCheckpoint(
             monitor="val_accuracy",
             mode="max",
