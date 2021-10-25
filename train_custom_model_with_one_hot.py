@@ -17,11 +17,8 @@ from tensorflow.keras.layers import (
     BatchNormalization,
 )
 from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.callbacks import (
-    ReduceLROnPlateau,
-    EarlyStopping,
-    ModelCheckpoint,
-)
+from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint
+
 import neptune.new as neptune
 from neptune.new.integrations.tensorflow_keras import NeptuneCallback
 
@@ -79,7 +76,7 @@ if __name__ == "__main__":
     # init neptune logger
     run = neptune.init(
         project="sophiedalentour/DBP-APP",
-        tags=["list-of", "tags", "goes-here", "as-list-of-strings"],
+        tags=["hit or not"],
     )
 
     # set the seed
@@ -103,8 +100,8 @@ if __name__ == "__main__":
     SAVED_MODEL_PATH = (
         "logs/model_" + datetime.datetime.now().strftime("%Y%m%d%H%M%S") + ".hdf5"
     )
-    TRAIN_SET = "data/PDB14189.csv"
-    TEST_SET = "data/PDB2272.csv"
+    TRAIN_SET = "data/train_fullseq.csv"
+    TEST_SET = "data/tune_fullseq.csv"
 
     # save parameters in neptune
     run["hyper-parameters"] = {
@@ -159,7 +156,12 @@ if __name__ == "__main__":
     model.compile(
         loss="binary_crossentropy",
         optimizer="adam",
-        metrics=["accuracy", "AUC", "Precision", "Recall"],
+        metrics=[
+            "Precision",
+            "accuracy",
+            "AUC",
+            "Recall",
+        ],
     )
 
     # define callbacks
@@ -167,7 +169,7 @@ if __name__ == "__main__":
         ReduceLROnPlateau(monitor="val_loss", factor=0.1, patience=3, verbose=1),
         # EarlyStopping(monitor="val_loss", min_delta=0, patience=5, verbose=1),
         ModelCheckpoint(
-            monitor="val_accuracy",
+            monitor="val_precision",  # to modify with val_topk...
             mode="max",
             filepath=SAVED_MODEL_PATH,
             save_best_only=True,

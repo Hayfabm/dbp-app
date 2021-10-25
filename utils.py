@@ -10,7 +10,7 @@ from sklearn.model_selection import train_test_split
 def create_dataset(data_path: str) -> Tuple[List[str], List[int]]:
     dataset = pd.read_csv(data_path)
     dataset = dataset.sample(frac=1).reset_index(drop=True)  # shuffle the dataset
-    return list(dataset["sequence"]), list(dataset["label"])
+    return list(dataset["peptide"]), list(dataset["hit"])
 
 
 def split_dataset(
@@ -79,4 +79,3 @@ def preprocess_word_embedding_encoding(
     model_input = np.expand_dims(encoded_sequence, 0)  # add batch dimension
 
     return model_input  # (1, 800)
-
