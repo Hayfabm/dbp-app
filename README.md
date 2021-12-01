@@ -1,4 +1,4 @@
-# deepchain.bio DNA-binding Proteins app #
+# deepchain.bio | DNA-binding Proteins app #
 
 ## Install dbp conda environment ##
 
